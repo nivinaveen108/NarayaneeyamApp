@@ -56,7 +56,7 @@
       display: flex;
       flex-direction: column;
       gap: 16px;
-      padding-bottom: 120px; /* Space for bottom player */
+      padding-bottom: 140px; /* Space for bottom player */
     }
 
     .card {
@@ -111,6 +111,8 @@
       display: flex;
       justify-content: space-around;
       align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
     }
 
     button.control-btn {
@@ -160,8 +162,10 @@
   <div class="audio-dock">
     <audio id="audio" controls></audio>
     <div class="dock-controls">
+      <button id="prevVerseBtn" class="control-btn">⏮️ Verse</button>
       <button id="repeatVerseBtn" class="control-btn">🔁 Verse</button>
       <button id="repeatDashakamBtn" class="control-btn">🔁 Dashakam</button>
+      <button id="nextVerseBtn" class="control-btn">Verse ⏭️</button>
       <button id="speedBtn" class="control-btn" title="Playback Speed">1x</button>
     </div>
   </div>
@@ -177,6 +181,8 @@
 
       const repeatVerseBtn = document.getElementById('repeatVerseBtn');
       const repeatDashakamBtn = document.getElementById('repeatDashakamBtn');
+      const prevVerseBtn = document.getElementById('prevVerseBtn');
+      const nextVerseBtn = document.getElementById('nextVerseBtn');
       const speedBtn = document.getElementById('speedBtn');
 
       // Populate Dashakam Dropdown (001 to 100)
@@ -257,6 +263,16 @@
         return parseFloat(parts[2]) + parseInt(parts[1]) * 60 + parseInt(parts[0]) * 3600;
       }
 
+      function updateActiveCueDisplay(index) {
+        if (index >= 0 && index < cues.length) {
+          currentCueIndex = index;
+          const parts = parseCueText(cues[currentCueIndex].text);
+          verseDiv.innerHTML = parts.verse.replace(/\n/g, '<br>');
+          splitWordsDiv.innerHTML = parts.splitWords.replace(/\n/g, '<br>');
+          meaningDiv.innerHTML = parts.meaning.replace(/\n/g, '<br>');
+        }
+      }
+
       function loadContent() {
         const dVal = dashakamSelect.value;
         const folderVal = langSelect.value;
@@ -272,6 +288,7 @@
             currentCueIndex = -1;
             if (cues.length > 0) {
               audio.currentTime = timeToSeconds(cues[0].start);
+              updateActiveCueDisplay(0);
             }
           })
           .catch(() => {
@@ -295,6 +312,22 @@
         repeatDashakamBtn.classList.toggle('active', repeatDashakam);
       });
 
+      prevVerseBtn.addEventListener('click', () => {
+        if (cues.length > 0 && currentCueIndex > 0) {
+          currentCueIndex--;
+          audio.currentTime = timeToSeconds(cues[currentCueIndex].start);
+          updateActiveCueDisplay(currentCueIndex);
+        }
+      });
+
+      nextVerseBtn.addEventListener('click', () => {
+        if (cues.length > 0 && currentCueIndex < cues.length - 1) {
+          currentCueIndex++;
+          audio.currentTime = timeToSeconds(cues[currentCueIndex].start);
+          updateActiveCueDisplay(currentCueIndex);
+        }
+      });
+
       speedBtn.addEventListener('click', () => {
         speedIndex = (speedIndex + 1) % speedOptions.length;
         audio.playbackRate = speedOptions[speedIndex];
@@ -308,11 +341,7 @@
         const newIndex = cues.findIndex(c => ct >= timeToSeconds(c.start) && ct <= timeToSeconds(c.end));
 
         if (newIndex !== -1 && newIndex !== currentCueIndex) {
-          currentCueIndex = newIndex;
-          const parts = parseCueText(cues[currentCueIndex].text);
-          verseDiv.innerHTML = parts.verse.replace(/\n/g, '<br>');
-          splitWordsDiv.innerHTML = parts.splitWords.replace(/\n/g, '<br>');
-          meaningDiv.innerHTML = parts.meaning.replace(/\n/g, '<br>');
+          updateActiveCueDisplay(newIndex);
         }
 
         // Repeat Logic
