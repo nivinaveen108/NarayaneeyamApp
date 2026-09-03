@@ -353,16 +353,24 @@
       });
 
       prevVerseBtn.addEventListener('click', () => {
-        if (cues.length > 0 && currentCueIndex > 0) {
-          currentCueIndex--;
+        if (cues.length > 0) {
+          if (currentCueIndex <= 0) {
+            currentCueIndex = 0;
+          } else {
+            currentCueIndex--;
+          }
           audio.currentTime = timeToSeconds(cues[currentCueIndex].start);
           updateActiveCueDisplay(currentCueIndex);
         }
       });
 
       nextVerseBtn.addEventListener('click', () => {
-        if (cues.length > 0 && currentCueIndex < cues.length - 1) {
-          currentCueIndex++;
+        if (cues.length > 0) {
+          if (currentCueIndex === -1 || currentCueIndex >= cues.length - 1) {
+            currentCueIndex = 0;
+          } else {
+            currentCueIndex++;
+          }
           audio.currentTime = timeToSeconds(cues[currentCueIndex].start);
           updateActiveCueDisplay(currentCueIndex);
         }
