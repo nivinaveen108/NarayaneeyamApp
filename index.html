@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Narayaneeyam Learning Hub</title>
+  <style>
+    :root {
+      --primary-color: #d97706;
+      --bg-color: #fcfbf9;
+      --card-bg: #ffffff;
+      --text-main: #1f2937;
+      --text-muted: #4b5563;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Top Selection Bar */
+    header {
+      background: var(--card-bg);
+      padding: 12px 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      display: flex;
+      gap: 10px;
+      z-index: 10;
+    }
+
+    select {
+      flex: 1;
+      padding: 10px;
+      font-size: 15px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      background-color: #fff;
+    }
+
+    /* Main Content Viewport */
+    main {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding-bottom: 120px; /* Space for bottom player */
+    }
+
+    .card {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    .card h3 {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--primary-color);
+      margin-bottom: 8px;
+    }
+
+    .content-text {
+      font-size: 1.1rem;
+      line-height: 1.6;
+      white-space: pre-line;
+    }
+
+    #verse {
+      font-size: 1.25rem;
+      font-weight: 500;
+      text-align: center;
+      color: #7c2d12;
+    }
+
+    /* Mobile Bottom Audio Dock */
+    .audio-dock {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--card-bg);
+      border-top: 1px solid #e5e7eb;
+      padding: 12px 16px;
+      box-shadow: 0 -4px 6px -1px rgba(0,0,0,0.05);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    audio {
+      width: 100%;
+      height: 40px;
+    }
+
+    .dock-controls {
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+    }
+
+    button.control-btn {
+      background: none;
+      border: none;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-muted);
+      padding: 8px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    button.control-btn.active {
+      color: #059669;
+      background-color: #ecfdf5;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <select id="dashakamSelect"></select>
+    <select id="langSelect">
+      <option value="vtt_time__devanagari_english">Devanagari + English</option>
+      <option value="vtt_time__devanagari_malayalam">Devanagari + Malayalam</option>
+      <option value="vtt_time__devanagari_tamil">Devanagari + Tamil</option>
+      <option value="vtt_time_malayalam_translated">Malayalam Translated</option>
+    </select>
+  </header>
+
+  <main>
+    <div class="card">
+      <h3>Verse</h3>
+      <div id="verse" class="content-text">Select a Dashakam to begin...</div>
+    </div>
+    <div class="card">
+      <h3>Word Breakdown</h3>
+      <div id="splitWords" class="content-text"></div>
+    </div>
+    <div class="card">
+      <h3>Meaning</h3>
+      <div id="meaning" class="content-text"></div>
+    </div>
+  </main>
+
+  <div class="audio-dock">
+    <audio id="audio" controls></audio>
+    <div class="dock-controls">
+      <button id="repeatVerseBtn" class="control-btn">🔁 Verse</button>
+      <button id="repeatDashakamBtn" class="control-btn">🔁 Dashakam</button>
+      <button id="speedBtn" class="control-btn" title="Playback Speed">1x</button>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const dashakamSelect = document.getElementById('dashakamSelect');
+      const langSelect = document.getElementById('langSelect');
+      const audio = document.getElementById('audio');
+      const verseDiv = document.getElementById('verse');
+      const splitWordsDiv = document.getElementById('splitWords');
+      const meaningDiv = document.getElementById('meaning');
+
+      const repeatVerseBtn = document.getElementById('repeatVerseBtn');
+      const repeatDashakamBtn = document.getElementById('repeatDashakamBtn');
+      const speedBtn = document.getElementById('speedBtn');
+
+      // Populate Dashakam Dropdown (001 to 100)
+      for (let i = 1; i <= 100; i++) {
+        const val = i.toString().padStart(3, '0');
+        const option = document.createElement('option');
+        option.value = val;
+        option.textContent = `Dashakam ${val}`;
+        dashakamSelect.appendChild(option);
+      }
+
+      let cues = [];
+      let currentCueIndex = -1;
+      let repeatVerse = false;
+      let repeatDashakam = false;
+      const speedOptions = [1, 1.25, 1.5, 0.75];
+      let speedIndex = 0;
+
+      // Base URL pointing directly to your live narayaneeyam_basic repository files
+      const BASE_PATH = 'https://nivinaveen108.github.io/narayaneeyam_basic/'; 
+
+      function parseCueText(text) {
+        const lines = text.trim().split('\n');
+        let verseLines = [], splitWordLines = [], meaningLines = [];
+        let foundVerseEnd = false, foundMeaningStart = false;
+        const verseEndRegex = /॥\s*[०-९0-9]+\s*॥/;
+        const isEnglishLine = line => /^[\x00-\x7F\s.,'"()\-:;!?]+$/.test(line.trim());
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!foundVerseEnd) {
+            verseLines.push(trimmed);
+            if (verseEndRegex.test(trimmed)) foundVerseEnd = true;
+          } else if (!foundMeaningStart) {
+            if (isEnglishLine(trimmed) && trimmed.length > 0) {
+              foundMeaningStart = true;
+              meaningLines.push(trimmed);
+            } else {
+              splitWordLines.push(trimmed);
+            }
+          } else {
+            meaningLines.push(trimmed);
+          }
+        }
+        return {
+          verse: verseLines.join('\n'),
+          splitWords: splitWordLines.join('\n'),
+          meaning: meaningLines.join('\n')
+        };
+      }
+
+      function loadVTT(url) {
+        return fetch(url)
+          .then(res => { if (!res.ok) throw new Error(); return res.text(); })
+          .then(text => {
+            const lines = text.split('\n');
+            let parsedCues = [], i = 0;
+            while (i < lines.length) {
+              const line = lines[i].trim();
+              if (line.includes('-->')) {
+                let [start, end] = line.split(' --> ').map(s => s.trim());
+                let cueText = [];
+                i++;
+                while (i < lines.length && lines[i].trim() !== '') {
+                  cueText.push(lines[i]);
+                  i++;
+                }
+                parsedCues.push({ start, end, text: cueText.join('\n') });
+              }
+              i++;
+            }
+            return parsedCues;
+          });
+      }
+
+      function timeToSeconds(timeStr) {
+        const parts = timeStr.split(':');
+        return parseFloat(parts[2]) + parseInt(parts[1]) * 60 + parseInt(parts[0]) * 3600;
+      }
+
+      function loadContent() {
+        const dVal = dashakamSelect.value;
+        const folderVal = langSelect.value;
+
+        audio.src = `${BASE_PATH}audio/Narayaneeyam_D${dVal}.mp3`;
+        audio.load();
+
+        const vttUrl = `${BASE_PATH}${folderVal}/Narayaneeyam_D${dVal}.vtt`;
+
+        loadVTT(vttUrl)
+          .then(loaded => {
+            cues = loaded;
+            currentCueIndex = -1;
+            if (cues.length > 0) {
+              audio.currentTime = timeToSeconds(cues[0].start);
+            }
+          })
+          .catch(() => {
+            verseDiv.textContent = "Subtitle file unavailable for this language folder.";
+            splitWordsDiv.textContent = "";
+            meaningDiv.textContent = "";
+          });
+      }
+
+      // Event Listeners
+      dashakamSelect.addEventListener('change', loadContent);
+      langSelect.addEventListener('change', loadContent);
+
+      repeatVerseBtn.addEventListener('click', () => {
+        repeatVerse = !repeatVerse;
+        repeatVerseBtn.classList.toggle('active', repeatVerse);
+      });
+
+      repeatDashakamBtn.addEventListener('click', () => {
+        repeatDashakam = !repeatDashakam;
+        repeatDashakamBtn.classList.toggle('active', repeatDashakam);
+      });
+
+      speedBtn.addEventListener('click', () => {
+        speedIndex = (speedIndex + 1) % speedOptions.length;
+        audio.playbackRate = speedOptions[speedIndex];
+        speedBtn.textContent = `${speedOptions[speedIndex]}x`;
+      });
+
+      audio.addEventListener('timeupdate', () => {
+        if (!cues.length) return;
+        const ct = audio.currentTime;
+
+        const newIndex = cues.findIndex(c => ct >= timeToSeconds(c.start) && ct <= timeToSeconds(c.end));
+
+        if (newIndex !== -1 && newIndex !== currentCueIndex) {
+          currentCueIndex = newIndex;
+          const parts = parseCueText(cues[currentCueIndex].text);
+          verseDiv.innerHTML = parts.verse.replace(/\n/g, '<br>');
+          splitWordsDiv.innerHTML = parts.splitWords.replace(/\n/g, '<br>');
+          meaningDiv.innerHTML = parts.meaning.replace(/\n/g, '<br>');
+        }
+
+        // Repeat Logic
+        if (repeatVerse && currentCueIndex !== -1) {
+          if (ct >= timeToSeconds(cues[currentCueIndex].end)) {
+            audio.currentTime = timeToSeconds(cues[currentCueIndex].start);
+          }
+        }
+        if (repeatDashakam && currentCueIndex === cues.length - 1) {
+          if (ct >= timeToSeconds(cues[currentCueIndex].end)) {
+            audio.currentTime = 0;
+          }
+        }
+      });
+
+      // Initial load
+      loadContent();
+    });
+  </script>
+</body>
+</html>
