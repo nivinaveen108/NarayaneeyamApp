@@ -136,10 +136,10 @@
 
   <header>
     <select id="dashakamSelect"></select>
-    <select id="langSelect">
-      <option value="vtt_time__devanagari_english">Devanagari + English</option>
-      <option value="vtt_time__devanagari_malayalam">Devanagari + Malayalam</option>
-      <option value="vtt_time__devanagari_tamil">Devanagari + Tamil</option>
+<select id="langSelect">
+      <option value="vtt_time_devanagari_english">Devanagari + English</option>
+      <option value="vtt_time_devanagari_malayalam">Devanagari + Malayalam</option>
+      <option value="vtt_time_devanagari_tamil">Devanagari + Tamil</option>
       <option value="vtt_time_malayalam_translated">Malayalam Translated</option>
     </select>
   </header>
@@ -280,6 +280,8 @@
         audio.src = `${BASE_PATH}audio/Narayaneeyam_D${dVal}.mp3`;
         audio.load();
 
+        // Fallback check matrix for different folder names based on your repository structure
+        // If your repo uses exact folder names like "vtt_time__devanagari_english", etc.
         const vttUrl = `${BASE_PATH}${folderVal}/Narayaneeyam_D${dVal}.vtt`;
 
         loadVTT(vttUrl)
@@ -292,9 +294,46 @@
             }
           })
           .catch(() => {
-            verseDiv.textContent = "Subtitle file unavailable for this language folder.";
-            splitWordsDiv.textContent = "";
-            meaningDiv.textContent = "";
+            // Fallback attempts for folder naming variations if the primary fetch fails
+            const altFolders = ['vtt_devanagari_english', 'vtt_malayalam_translated', folderVal];
+            let attemptFetch = (folderIdx) => {
+              if (folderIdx >= altFolders.length) {
+                verseDiv.textContent = "Subtitle file unavailable for this language folder.";
+                splitWordsDiv.textContent = "";
+                meaningDiv.textContent = "";
+                return;
+              }
+              const altUrl = `${BASE_PATH}${altFolders[folderIdx]}/Narayaneeyam_D${dVal}.vtt`;
+              fetch(altUrl)
+                .then(res => { if (!res.ok) throw new Error(); return res.text(); })
+                .then(text => {
+                  // Parse inline if fallback succeeds
+                  const lines = text.split('\n');
+                  let parsedCues = [], i = 0;
+                  while (i < lines.length) {
+                    const line = lines[i].trim();
+                    if (line.includes('-->')) {
+                      let [start, end] = line.split(' --> ').map(s => s.trim());
+                      let cueText = [];
+                      i++;
+                      while (i < lines.length && lines[i].trim() !== '') {
+                        cueText.push(lines[i]);
+                        i++;
+                      }
+                      parsedCues.push({ start, end, text: cueText.join('\n') });
+                    }
+                    i++;
+                  }
+                  cues = parsedCues;
+                  currentCueIndex = -1;
+                  if (cues.length > 0) {
+                    audio.currentTime = timeToSeconds(cues[0].start);
+                    updateActiveCueDisplay(0);
+                  }
+                })
+                .catch(() => attemptFetch(folderIdx + 1));
+            };
+            attemptFetch(0);
           });
       }
 
