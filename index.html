@@ -137,11 +137,11 @@
   <header>
     <select id="dashakamSelect"></select>
 <select id="langSelect">
-      <option value="vtt_time_devanagari_english">Devanagari + English</option> 
-      <option value="vtt_time_devanagari_malayalam">Devanagari + Malayalam</option>
-      <option value="vtt_time_devanagari_tamil">Devanagari + Tamil</option>
-      <option value="vtt_time_malayalam_translated">Malayalam Translated</option>
-    </select>
+  <option value="vtt_time_devanagari_english">Devanagari + English</option>
+  <option value="vtt_time_devanagari_malayalam">Devanagari + Malayalam</option>
+  <option value="vtt_time_devanagari_tamil">Devanagari + Tamil</option>
+  <option value="vtt_time_malayalam_translated">Malayalam Translated</option>
+</select>
   </header>
 
   <main>
@@ -280,9 +280,13 @@
         audio.src = `${BASE_PATH}audio/Narayaneeyam_D${dVal}.mp3`;
         audio.load();
 
-        // Fallback check matrix for different folder names based on your repository structure
-        // If your repo uses exact folder names like "vtt_time__devanagari_english", etc.
-        const vttUrl = `${BASE_PATH}${folderVal}/Narayaneeyam_D${dVal}.vtt`;
+// Route to the correct repository based on the selected folder
+      let vttUrl = '';
+      if (folderVal === 'vtt_time_malayalam_translated') {
+        vttUrl = `https://nivinaveen108.github.io/narayaneeyam/${folderVal}/Narayaneeyam_D${dVal}.vtt`;
+      } else {
+        vttUrl = `https://nivinaveen108.github.io/narayaneeyam_basic/${folderVal}/Narayaneeyam_D${dVal}.vtt`;
+      }
 
         loadVTT(vttUrl)
           .then(loaded => {
