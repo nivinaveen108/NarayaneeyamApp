@@ -500,20 +500,20 @@
             currentCueIndex--;
           }
           audio.currentTime = timeToSeconds(cues[currentCueIndex].start);
+          audio.play().catch(() => {}); // Forces playback immediately on user interaction
           updateActiveCueDisplay(currentCueIndex);
         }
       });
 
       nextVerseBtn.addEventListener('click', () => {
         if (cues.length > 0) {
-          // If currentCueIndex is uninitialized (-1), jump to the first verse (index 0).
-          // Otherwise, advance to the next verse, wrapping around to 0 if at the end.
           if (currentCueIndex === -1 || currentCueIndex >= cues.length - 1) {
             currentCueIndex = 0;
           } else {
             currentCueIndex++;
           }
           audio.currentTime = timeToSeconds(cues[currentCueIndex].start);
+          audio.play().catch(() => {}); // Forces playback immediately on user interaction
           updateActiveCueDisplay(currentCueIndex);
         }
       });
@@ -547,7 +547,7 @@
         }
       });
 
-      // Initial load & fix for audio not being loaded yet on initial start
+      // Initial load
       loadContent();
     });
   </script>
