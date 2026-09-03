@@ -66,6 +66,10 @@
       box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
 
+    .card.hidden {
+      display: none;
+    }
+
     .card h3 {
       font-size: 0.85rem;
       text-transform: uppercase;
@@ -136,12 +140,12 @@
 
   <header>
     <select id="dashakamSelect"></select>
-<select id="langSelect">
-  <option value="vtt_time_devanagari_english">Devanagari + English</option>
-  <option value="vtt_time_devanagari_malayalam">Devanagari + Malayalam</option>
-  <option value="vtt_time_devanagari_tamil">Devanagari + Tamil</option>
-  <option value="vtt_time_malayalam_translated">Malayalam Translated</option>
-</select>
+    <select id="langSelect">
+      <option value="vtt_time_devanagari_english">Devanagari + English</option>
+      <option value="vtt_time_devanagari_malayalam">Devanagari + Malayalam</option>
+      <option value="vtt_time_devanagari_tamil">Devanagari + Tamil</option>
+      <option value="vtt_time_malayalam_translated">Malayalam Translated</option>
+    </select>
   </header>
 
   <main>
@@ -149,7 +153,7 @@
       <h3>Verse</h3>
       <div id="verse" class="content-text">Select a Dashakam to begin...</div>
     </div>
-    <div class="card">
+    <div id="wordCard" class="card">
       <h3>Word Breakdown</h3>
       <div id="splitWords" class="content-text"></div>
     </div>
@@ -178,6 +182,7 @@
       const verseDiv = document.getElementById('verse');
       const splitWordsDiv = document.getElementById('splitWords');
       const meaningDiv = document.getElementById('meaning');
+      const wordCard = document.getElementById('wordCard');
 
       const repeatVerseBtn = document.getElementById('repeatVerseBtn');
       const repeatDashakamBtn = document.getElementById('repeatDashakamBtn');
@@ -201,23 +206,43 @@
       const speedOptions = [1, 1.25, 1.5, 0.75];
       let speedIndex = 0;
 
-      // Base URL pointing directly to your live narayaneeyam_basic repository files
-      const BASE_PATH = 'https://nivinaveen108.github.io/narayaneeyam_basic/'; 
-
-      function parseCueText(text) {
+      function parseCueText(text, folderVal) {
         const lines = text.trim().split('\n');
         let verseLines = [], splitWordLines = [], meaningLines = [];
         let foundVerseEnd = false, foundMeaningStart = false;
-        const verseEndRegex = /॥\s*[०-९0-9]+\s*॥/;
+        
+        const verseEndRegex = /(\.\.\s*[0-9]+\s*\.\.|॥\s*[०-९0-9]+\s*॥)/;
         const isEnglishLine = line => /^[\x00-\x7F\s.,'"()\-:;!?]+$/.test(line.trim());
 
+        // If it's the Malayalam translated format, handle it directly
+        if (folderVal === 'vtt_time_malayalam_translated') {
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed) continue;
+            if (!foundVerseEnd) {
+              verseLines.push(trimmed);
+              if (verseEndRegex.test(trimmed)) foundVerseEnd = true;
+            } else {
+              meaningLines.push(trimmed);
+            }
+          }
+          return {
+            verse: verseLines.join('\n'),
+            splitWords: '',
+            meaning: meaningLines.join('\n')
+          };
+        }
+
+        // Standard parsing for multi-section script files
         for (const line of lines) {
           const trimmed = line.trim();
+          if (trimmed.includes('[Translation failed')) continue;
+
           if (!foundVerseEnd) {
             verseLines.push(trimmed);
             if (verseEndRegex.test(trimmed)) foundVerseEnd = true;
           } else if (!foundMeaningStart) {
-            if (isEnglishLine(trimmed) && trimmed.length > 0) {
+            if (isEnglishLine(trimmed) && trimmed.length > 3 && !/[അ-ഹാ-ൗ്ംഃ]/g.test(trimmed)) {
               foundMeaningStart = true;
               meaningLines.push(trimmed);
             } else {
@@ -227,6 +252,7 @@
             meaningLines.push(trimmed);
           }
         }
+
         return {
           verse: verseLines.join('\n'),
           splitWords: splitWordLines.join('\n'),
@@ -266,10 +292,18 @@
       function updateActiveCueDisplay(index) {
         if (index >= 0 && index < cues.length) {
           currentCueIndex = index;
-          const parts = parseCueText(cues[currentCueIndex].text);
+          const folderVal = langSelect.value;
+          const parts = parseCueText(cues[currentCueIndex].text, folderVal);
+          
           verseDiv.innerHTML = parts.verse.replace(/\n/g, '<br>');
-          splitWordsDiv.innerHTML = parts.splitWords.replace(/\n/g, '<br>');
           meaningDiv.innerHTML = parts.meaning.replace(/\n/g, '<br>');
+
+          if (parts.splitWords.trim() === '') {
+            wordCard.classList.add('hidden');
+          } else {
+            wordCard.classList.remove('hidden');
+            splitWordsDiv.innerHTML = parts.splitWords.replace(/\n/g, '<br>');
+          }
         }
       }
 
@@ -277,16 +311,15 @@
         const dVal = dashakamSelect.value;
         const folderVal = langSelect.value;
 
-        audio.src = `${BASE_PATH}audio/Narayaneeyam_D${dVal}.mp3`;
+        audio.src = `https://nivinaveen108.github.io/narayaneeyam_basic/audio/Narayaneeyam_D${dVal}.mp3`;
         audio.load();
 
-// Route to the correct repository based on the selected folder
-      let vttUrl = '';
-      if (folderVal === 'vtt_time_malayalam_translated') {
-        vttUrl = `https://nivinaveen108.github.io/narayaneeyam/${folderVal}/Narayaneeyam_D${dVal}.vtt`;
-      } else {
-        vttUrl = `https://nivinaveen108.github.io/narayaneeyam_basic/${folderVal}/Narayaneeyam_D${dVal}.vtt`;
-      }
+        let vttUrl = '';
+        if (folderVal === 'vtt_time_malayalam_translated') {
+          vttUrl = `https://nivinaveen108.github.io/narayaneeyam/${folderVal}/Narayaneeyam_D${dVal}.vtt`;
+        } else {
+          vttUrl = `https://nivinaveen108.github.io/narayaneeyam_basic/${folderVal}/Narayaneeyam_D${dVal}.vtt`;
+        }
 
         loadVTT(vttUrl)
           .then(loaded => {
@@ -298,46 +331,10 @@
             }
           })
           .catch(() => {
-            // Fallback attempts for folder naming variations if the primary fetch fails
-            const altFolders = ['vtt_devanagari_english', 'vtt_malayalam_translated', folderVal];
-            let attemptFetch = (folderIdx) => {
-              if (folderIdx >= altFolders.length) {
-                verseDiv.textContent = "Subtitle file unavailable for this language folder.";
-                splitWordsDiv.textContent = "";
-                meaningDiv.textContent = "";
-                return;
-              }
-              const altUrl = `${BASE_PATH}${altFolders[folderIdx]}/Narayaneeyam_D${dVal}.vtt`;
-              fetch(altUrl)
-                .then(res => { if (!res.ok) throw new Error(); return res.text(); })
-                .then(text => {
-                  // Parse inline if fallback succeeds
-                  const lines = text.split('\n');
-                  let parsedCues = [], i = 0;
-                  while (i < lines.length) {
-                    const line = lines[i].trim();
-                    if (line.includes('-->')) {
-                      let [start, end] = line.split(' --> ').map(s => s.trim());
-                      let cueText = [];
-                      i++;
-                      while (i < lines.length && lines[i].trim() !== '') {
-                        cueText.push(lines[i]);
-                        i++;
-                      }
-                      parsedCues.push({ start, end, text: cueText.join('\n') });
-                    }
-                    i++;
-                  }
-                  cues = parsedCues;
-                  currentCueIndex = -1;
-                  if (cues.length > 0) {
-                    audio.currentTime = timeToSeconds(cues[0].start);
-                    updateActiveCueDisplay(0);
-                  }
-                })
-                .catch(() => attemptFetch(folderIdx + 1));
-            };
-            attemptFetch(0);
+            verseDiv.textContent = "Subtitle file unavailable for this language folder.";
+            splitWordsDiv.textContent = "";
+            meaningDiv.textContent = "";
+            wordCard.classList.remove('hidden');
           });
       }
 
